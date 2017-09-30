@@ -1,5 +1,4 @@
 <h1>Fast Upgrade VM</h1>
----------------
 Este script é extremamente útil para efetuar upgrade em maquinas virtuais, pois as vezes precisamos fazer algumas modificações na maquina virtual enquanto ela está desligada e como nem sempre são apenas uma ou duas VMs, o tempo necessário para realizar estas tarefas pode ser grande (e chato). O script que escrevi consegue ler as máquinas virtuais que você escolher (pode buscar no datacenter, cluster, resource pool ou folder), verifica se todas as máquinas virtuais estão desligadas, mostra quais features do script serão aplicadas (baseado na sua configuração) e por fim lhe questiona se deseja continuar o upgrade, basta aceitar para que as modificações nas máquinas virtuais sejam iniciadas.
 
  - **Ações que o script executa**
