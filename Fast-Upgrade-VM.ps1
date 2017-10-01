@@ -263,7 +263,7 @@ else {
 				}
 			}
 			if ($EnableCPUHotAdd -eq 1) { # CPU HOTADD
-				if ($VMtotal.NumCpu[$VMNumTotal] -lt 8) { # -le or -lt
+				#if ($VMtotal.NumCpu[$VMNumTotal] -lt 8) { # -le or -lt | uncomment if you want to enable cpu hotadd ONLY in VMs with minus 8 vCPU
 					$VMCPUhotadd = Get-VM -Name $VMtotal[$VMNumTotal] | Get-View # Get VM
 					if ($VMCPUhotadd.Config.CpuHotAddEnabled -ne "False") { # CPU HotAdd
 						Enable-vCPUHotAdd $VMtotal.Name[$VMNumTotal]
@@ -272,7 +272,7 @@ else {
 					else {
 						write-host "CPU hotadd from"$VMtotal.Name[$VMNumTotal]"already enabled"
 					}
-				}
+				#} # uncomment if you want to enable cpu hotadd ONLY in VMs with minus 8 vCPU
 			}
 			if ($EnableMemoryHotAdd -eq 1) { # MEMORY HOTADD
 				$VMMemoryhotadd = Get-VM -Name $VMtotal.Name[$VMNumTotal] | Get-View # Get VM
