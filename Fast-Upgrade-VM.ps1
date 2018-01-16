@@ -1,17 +1,18 @@
 ######################################################################
 # Created By @RicardoConzatti | September 2017
+# Latest update: January 2018
 # www.Solutions4Crowds.com.br
 ######################################################################
-$vCenter = "0" # Default = 0 | vCenter Server FQDN or IP
-$vCuser = "0" # Default = 0 | vCenter Server User
+$vCenter = "0" #"lab-vcsa148.s4c.local" # Default = 0
+$vCuser = "0" #"administrator@vsphere.local" # Default = 0
 ######################################################################
 ######################### SELECT THE FEATURES ########################
 ######################################################################
-$EnableFloppy = 0 # 0 = Disabled | 1 = Enabled ## Enable to remove Floppy Drive
-$EnablevHardware = 0 # 0 = Disabled | 1 = Enabled ## Enable to Upgrade Virtual Hardware
+$EnableFloppy = 1 # 0 = Disabled | 1 = Enabled ## Enable to remove Floppy Drive
+$EnablevHardware = 1 # 0 = Disabled | 1 = Enabled ## Enable to Upgrade Virtual Hardware
 $VMHardwareVersion = "v11" # Virtual Hardware Version to UPGRADE
-$EnableCPUHotAdd = 0 # 0 = Disabled | 1 = Enabled ## Enable vCPU HotAdd
-$EnableMemoryHotAdd = 0 # 0 = Disabled | 1 = Enabled ## Enable Memory HotAdd
+$EnableCPUHotAdd = 1 # 0 = Disabled | 1 = Enabled ## Enable vCPU HotAdd
+$EnableMemoryHotAdd = 1 # 0 = Disabled | 1 = Enabled ## Enable Memory HotAdd
 ######################################################################
 if ($EnableFloppy -eq 1) {
 	$MsgFloppy = "Enabled"
@@ -69,36 +70,43 @@ Function Enable-vCpuHotAdd($vm){ # FUNCTION ENABLE CPU HOTADD
 }
 ######################################################################
 cls
-$S4Ctitle = "Fast Upgrade VM v1.0"
+$S4Ctitle = "Fast Upgrade VM v2.0"
 $Body = 'www.Solutions4Crowds.com.br
 =======================================================
 '
 write-host $S4Ctitle
 write-host $Body
 write-host "Connect to vCenter Server`n`n=======================================================`n"
-if ($vCenter -eq 0) {
-	$vCenter = read-host "vCenter Server (FQDN or IP)"
+$vCenterConn = $global:DefaultVIServers
+if ($vCenterConn.Count -eq 1) {
+	write-host "You are connected to"$vCenterConn.Name"`n"
+	pause
 }
 else {
-	write-host "vCenter Server: $vCenter"
+	if ($vCenter -eq 0) {
+		$vCenter = read-host "vCenter Server (FQDN or IP)"
+	}
+	else {
+		write-host "vCenter Server: $vCenter"
+	}
+	if ($vCuser -eq 0) {
+		$vCuser = read-host "`nUsername"
+	}
+	else {
+		write-host "`nUsername: $vCuser"
+	}
+	$vCpass = Read-Host -assecurestring "`nPassword"
+	$vCpass = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($vCpass))
+	Connect-VIServer $vCenter -u $vCuser -password $vCpass | Out-Null
+	if ($global:DefaultVIServers[0].name -ne $null) {
+		write-host "`nConnected to $vCenter`n" -foregroundcolor "green"
+	}
+	else {
+		write-host "`nNot Connected to $vCenter. Try again!`n" -foregroundcolor "red"
+		exit
+	}
+	pause
 }
-if ($vCuser -eq 0) {
-	$vCuser = read-host "`nUsername"
-}
-else {
-	write-host "`nUsername: $vCuser"
-}
-$vCpass = Read-Host -assecurestring "`nPassword"
-$vCpass = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($vCpass))
-Connect-VIServer $vCenter -u $vCuser -password $vCpass | Out-Null
-if ($global:DefaultVIServers[0].name -ne $null) {
-	write-host "`nConnected to $vCenter`n" -foregroundcolor "green"
-}
-else {
-	write-host "`nNot Connected to $vCenter. Try again!`n" -foregroundcolor "red"
-	exit
-}
-pause
 cls
 write-host $S4Ctitle
 write-host $Body
@@ -238,55 +246,101 @@ else {
 	}
 	$QuestionMigration = read-host "Do you want to continue? (Y or N)"
 	if ($QuestionMigration -eq "Y") {
-		$VMNumTotal = 0
-		write-host		
-		while ($VMtotal.Count -ne $VMNumTotal) {
-			write-host "#"$VMtotal.Name[$VMNumTotal]
+		if ($VMpowerstate -eq 1) { # Just One VM
 			if ($EnableFloppy -eq 1) { # FLOPPY DRIVE
-				$VMfloppy = Get-FloppyDrive -VM $VMtotal.Name[$VMNumTotal] # Get VM with Floppy Drive
+				$VMfloppy = Get-FloppyDrive -VM $VMtotal.Name # Get VM with Floppy Drive
 				if ($VMfloppy.Count -gt 0) {
 					Remove-FloppyDrive -Floppy $VMfloppy -Confirm:$false | Out-Null # Remove floppy drive from VM
-					write-host "Floppy drive from"$VMtotal.Name[$VMNumTotal]"was removed"
+					write-host "Floppy drive from"$VMtotal.Name"was removed"
 				}
 				else {
-					write-host "There is no floppy drive in"$VMtotal.Name[$VMNumTotal]
+					write-host "There is no floppy drive in"$VMtotal.Name
 				}
 			}
 			if ($EnablevHardware -eq 1) { # VIRTUAL HARDWARE VERSION
-				$VMversion = Get-VM -Name $VMtotal.Name[$VMNumTotal] # Get VM with Virtual Hardware Version
-				if ($VMversion.Version -ne $VMHardwareVersion) {
-					Set-VM -VM $VMtotal.Name[$VMNumTotal] -Version $VMHardwareVersion -confirm:$false | Out-Null # Upgrade Virtual Hardware Version
-					write-host "Virtual Hardware Version from"$VMtotal.Name[$VMNumTotal]"was upgraded to $VMHardwareVersion"
+				$VMversion = Get-VM -Name $VMtotal.Name # Get VM with Virtual Hardware Version
+				if ($VMversion.Version -lt $VMHardwareVersion) {
+					Set-VM -VM $VMtotal.Name -Version $VMHardwareVersion -confirm:$false | Out-Null # Upgrade Virtual Hardware Version
+					write-host "Virtual Hardware Version from"$VMtotal.Name"was upgraded to $VMHardwareVersion"
 				}
 				else {
-					write-host "The virtual hardware is in the correct version in"$VMtotal.Name[$VMNumTotal]
+					write-host "The virtual hardware is in the correct version in"$VMtotal.Name
 				}
 			}
 			if ($EnableCPUHotAdd -eq 1) { # CPU HOTADD
-				#if ($VMtotal.NumCpu[$VMNumTotal] -lt 8) { # -le or -lt | uncomment if you want to enable cpu hotadd ONLY in VMs with minus 8 vCPU
-					$VMCPUhotadd = Get-VM -Name $VMtotal[$VMNumTotal] | Get-View # Get VM
+				if ($VMtotal.NumCpu -lt 8) { # -le or -lt
+					$VMCPUhotadd = Get-VM -Name $VMtotal | Get-View # Get VM
 					if ($VMCPUhotadd.Config.CpuHotAddEnabled -ne "False") { # CPU HotAdd
-						Enable-vCPUHotAdd $VMtotal.Name[$VMNumTotal]
-						write-host "CPU hotadd from"$VMtotal.Name[$VMNumTotal]"was enabled"
+						Enable-vCPUHotAdd $VMtotal.Name
+						write-host "CPU hotadd from"$VMtotal.Name"was enabled"
 					}
 					else {
-						write-host "CPU hotadd from"$VMtotal.Name[$VMNumTotal]"already enabled"
-					}
-				#} # uncomment if you want to enable cpu hotadd ONLY in VMs with minus 8 vCPU
-			}
-			if ($EnableMemoryHotAdd -eq 1) { # MEMORY HOTADD
-				$VMMemoryhotadd = Get-VM -Name $VMtotal.Name[$VMNumTotal] | Get-View # Get VM
-					if ($VMMemoryhotadd.Config.MemoryHotAddEnabled -ne "False") { # Memory HotAdd
-						Enable-MemHotAdd $VMtotal.Name[$VMNumTotal]
-						write-host "Memory hotadd from"$VMtotal.Name[$VMNumTotal]"was enabled"
-					}
-					else {
-						write-host "Memory hotadd from"$VMtotal.Name[$VMNumTotal]"already enabled"
+						write-host "CPU hotadd from"$VMtotal.Name"already enabled"
 					}
 				}
-			write-host "`n"
-			$VMNumTotal++;
 			}
-		}
-	Disconnect-VIServer -Server $vCenter -Confirm:$false
+			if ($EnableMemoryHotAdd -eq 1) { # MEMORY HOTADD
+				$VMMemoryhotadd = Get-VM -Name $VMtotal.Name | Get-View # Get VM
+					if ($VMMemoryhotadd.Config.MemoryHotAddEnabled -ne "False") { # Memory HotAdd
+						Enable-MemHotAdd $VMtotal.Name
+						write-host "Memory hotadd from"$VMtotal.Name"was enabled`n"
+					}
+					else {
+						write-host "Memory hotadd from"$VMtotal.Name"already enabled`n"
+					}
+				}
+			}
+			else {
+				write-host		
+				$VMNumTotal = 0
+				while ($VMtotal.Count -ne $VMNumTotal) { # Multiples VMs
+					write-host "#"$VMtotal.Name[$VMNumTotal]
+					if ($EnableFloppy -eq 1) { # FLOPPY DRIVE
+						$VMfloppy = Get-FloppyDrive -VM $VMtotal.Name[$VMNumTotal] # Get VM with Floppy Drive
+						if ($VMfloppy.Count -gt 0) {
+							Remove-FloppyDrive -Floppy $VMfloppy -Confirm:$false | Out-Null # Remove floppy drive from VM
+							write-host "Floppy drive from"$VMtotal.Name[$VMNumTotal]"was removed"
+						}
+						else {
+							write-host "There is no floppy drive in"$VMtotal.Name[$VMNumTotal]
+						}
+					}
+					if ($EnablevHardware -eq 1) { # VIRTUAL HARDWARE VERSION
+						$VMversion = Get-VM -Name $VMtotal.Name[$VMNumTotal] # Get VM with Virtual Hardware Version
+						if ($VMversion.Version -lt $VMHardwareVersion) {
+							Set-VM -VM $VMtotal.Name[$VMNumTotal] -Version $VMHardwareVersion -confirm:$false | Out-Null # Upgrade Virtual Hardware Version
+							write-host "Virtual Hardware Version from"$VMtotal.Name[$VMNumTotal]"was upgraded to $VMHardwareVersion"
+						}
+						else {
+							write-host "The virtual hardware is in the correct version in"$VMtotal.Name[$VMNumTotal]
+						}
+					}
+					if ($EnableCPUHotAdd -eq 1) { # CPU HOTADD
+						if ($VMtotal.NumCpu[$VMNumTotal] -lt 8) { # -le or -lt
+							$VMCPUhotadd = Get-VM -Name $VMtotal[$VMNumTotal] | Get-View # Get VM
+							if ($VMCPUhotadd.Config.CpuHotAddEnabled -ne "False") { # CPU HotAdd
+								Enable-vCPUHotAdd $VMtotal.Name[$VMNumTotal]
+								write-host "CPU hotadd from"$VMtotal.Name[$VMNumTotal]"was enabled"
+							}
+							else {
+								write-host "CPU hotadd from"$VMtotal.Name[$VMNumTotal]"already enabled"
+							}
+						}
+					}
+					if ($EnableMemoryHotAdd -eq 1) { # MEMORY HOTADD
+						$VMMemoryhotadd = Get-VM -Name $VMtotal.Name[$VMNumTotal] | Get-View # Get VM
+							if ($VMMemoryhotadd.Config.MemoryHotAddEnabled -ne "False") { # Memory HotAdd
+								Enable-MemHotAdd $VMtotal.Name[$VMNumTotal]
+								write-host "Memory hotadd from"$VMtotal.Name[$VMNumTotal]"was enabled"
+							}
+							else {
+								write-host "Memory hotadd from"$VMtotal.Name[$VMNumTotal]"already enabled"
+							}
+						}
+					write-host "`n"
+					$VMNumTotal++;
+					}
+				}
+			}
+	Disconnect-VIServer -Server $vCenter -Confirm:$false # Disconnect vCenter
 	}
